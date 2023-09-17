@@ -13,12 +13,54 @@ class Position(Enum):
     C = 5
 
 
+class Stats:
+    def __init__(self, ppg: float, apg: float, rpg: float, bpg: float):
+        self.ppg = ppg
+        self.apg = apg
+        self.rpg = rpg
+        self.bpg = bpg
+
+    def print(self):
+        print("ppg: " + str(self.ppg))
+        print("apg: " + str(self.apg))
+        print("rpg: " + str(self.rpg))
+        print("bpg: " + str(self.bpg))
+
+
 class Player:
     def __init__(self, name: str, position: Position, height: tuple, url: str):
         self.name = name
         self.position = position
         self.height = height
         self.url = url
+
+    def get_stats(self, options=None):
+        page = requests.get(self.url)
+        soup = BeautifulSoup(page.content, "lxml")
+
+        ppg = None
+        apg = None
+        rpg = None
+        bpg = None
+
+        stats_div = soup.find(id="div_per_game")
+        stat_cells = stats_div.find("tfoot").find("tr").find_all("td")
+        for cell in stat_cells:
+            if cell.attrs["data-stat"] == "pts_per_g":
+                ppg = float(cell.text)
+            elif cell.attrs["data-stat"] == "ast_per_g":
+                apg = float(cell.text)
+            elif cell.attrs["data-stat"] == "trb_per_g":
+                rpg = float(cell.text)
+            elif cell.attrs["data-stat"] == "blk_per_g":
+                bpg = float(cell.text)
+
+        return Stats(
+            ppg,
+            apg,
+            rpg,
+            bpg
+        )
 
     def print(self):
         print("name: " + self.name)
@@ -28,11 +70,6 @@ class Player:
 
 
 def get_url(name: list):
-    """
-    TODO: check name from page to make sure it matches and increment count if not
-    :param name: name of player as str
-    :return: url as str
-    """
     index = 1
     return f"https://www.basketball-reference.com/players/{name[1][0]}/{name[1][:5]}{name[0][:2]}0{index}.html"
 
@@ -52,14 +89,14 @@ def get_player(url: str):
         for tag in bold:
             # get position
             if tag.text.strip().startswith("Position:"):
-                position_prefix = tag.next.next.strip()
-                if position_prefix.startswith("Point"):
+                position_str = tag.next.next.strip()
+                if position_str.startswith("Point"):
                     position = Position.PG
-                elif position_prefix.startswith("Shooting"):
+                elif position_str.startswith("Shooting"):
                     position = Position.SG
-                elif position_prefix.startswith("Small"):
+                elif position_str.startswith("Small"):
                     position = Position.SF
-                elif position_prefix.startswith("Power"):
+                elif position_str.startswith("Power"):
                     position = Position.PF
                 else:
                     position = Position.C
@@ -82,9 +119,11 @@ if len(sys.argv) != 3:
 
 input_name = sys.argv[1:]
 url = get_url(input_name)
-player = get_player(url)
 
+player = get_player(url)
 player.print()
 
+print("")
 
-
+stats = player.get_stats();
+stats.print()
